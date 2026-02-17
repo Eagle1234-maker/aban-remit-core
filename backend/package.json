@@ -1,0 +1,57 @@
+{
+  "name": "aban-remit-core-backend",
+  "version": "1.0.0",
+  "description": "Aban Remit Core Backend - Multi-currency digital wallet platform",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "prisma:generate": "prisma generate",
+    "validate": "tsx src/validation/cli.ts run",
+    "validate:fix": "tsx src/validation/cli.ts run --auto-fix",
+    "validate:ci": "tsx src/validation/cli.ts run --output ./validation-report.json",
+    "validate:init": "tsx src/validation/cli.ts init"
+  },
+  "keywords": [
+    "fintech",
+    "wallet",
+    "remittance",
+    "mpesa"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "@types/express": "^5.0.6",
+    "axios": "^1.13.5",
+    "bcrypt": "^5.1.1",
+    "chalk": "^5.6.2",
+    "commander": "^14.0.3",
+    "express": "^5.2.1",
+    "fs-extra": "^11.3.3",
+    "glob": "^13.0.3",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/fs-extra": "^11.0.4",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^22.16.5",
+    "@types/pg": "^8.11.10",
+    "@types/supertest": "^6.0.3",
+    "fast-check": "^3.22.0",
+    "prisma": "^5.22.0",
+    "supertest": "^7.2.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "api": {
+    "baseURL": "http://localhost:3000",
+    "timeout": 5000
+  },
+  "database": {
+    "connectionString": "postgresql://fkmqtves:Laban2024@fkmqtves.postgres.database.azure.com:5432/fkmqtves_aban_remit?sslmode=require"
+  },
+  "testCredentials": {
+    "username": "test@example.com",
+    "password": "TestPassword123!"
+  },
+  "autoFix": {
+    "enabled": false,
+    "createMissingPages": true,
+    "fixBrokenAPIs": false
+  },
+  "output": {
+    "filePath": "./validation-report.json",
+    "format": "both"
+  },
+  "phases": {
+    "frontendBackend": true,
+    "backendDatabase": true,
+    "realTime": true,
+    "pageCompleteness": true,
+    "security": true,
+    "healthEndpoint": true,
+    "architecture": true
+  }
+}

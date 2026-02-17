@@ -1,0 +1,456 @@
+// Prisma schema for Aban Remit Core Backend
+// This schema defines the database structure for the multi-currency wallet platform
+// Production Database: fkmqtves_aban_remit (PostgreSQL 10.23)
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["auth", "core", "ledger", "audit", "services", "public"]
+}
+
+// =====================================================
+// PRODUCTION DATABASE CONFIGURATION
+// =====================================================
+// Host: localhost
+// Port: 5432
+// Database: fkmqtves_aban_remit
+// User: fkmqtves
+// Socket: /var/run/postgresql (if using Unix socket)
+//
+// Connection String Examples:
+// DATABASE_URL="postgresql://fkmqtves:PASSWORD@localhost:5432/fkmqtves_aban_remit?schema=public"
+// DATABASE_URL="postgresql://fkmqtves:PASSWORD@localhost/fkmqtves_aban_remit?host=/var/run/postgresql"
+// =====================================================
+
+// =====================================================
+// SCHEMA ARCHITECTURE
+// =====================================================
+// The database uses a multi-schema architecture:
+// - auth: Authentication and user management
+// - core: Core business entities (wallets, transactions, configs)
+// - ledger: Double-entry accounting ledger entries
+// - audit: System audit trail and reconciliation
+// - services: External service integration logs
+//
+// This Prisma schema is primarily for client generation.
+// The actual database schema is managed through SQL migrations
+// located in prisma/migrations/ directory.
+// =====================================================
+
+// =====================================================
+// MIGRATION HISTORY
+// =====================================================
+// 1. 20240217000000_init_base_schema
+//    - Creates all base tables and schemas
+//    - Sets up double-entry accounting structure
+//    - Initializes system accounts and sequences
+//
+// 2. 20240115000001_add_new_features_schema  
+//    - Adds MPESA and SMS logging tables
+//    - Adds verification_hash to transactions
+//    - Creates indexes for wallet lookup
+//
+// 3. 20240217000001_add_reconciliation_schema
+//    - Adds reconciliation jobs and discrepancies tables
+//    - Creates Paystack logs table
+//    - Adds reconciliation helper functions and triggers
+// =====================================================
+
+// =====================================================
+// SYSTEM ACCOUNTS
+// =====================================================
+// The following system wallets are automatically created:
+// - MPESA_SUSPENSE: Holds funds in transit from MPESA
+// - PAYSTACK_SUSPENSE: Holds funds in transit from Paystack  
+// - AIRTIME_SUSPENSE: Holds funds for airtime purchases
+// - FEE_REVENUE: Accumulates transaction fees collected
+// - COMMISSION_EXPENSE: Tracks agent commissions paid
+// =====================================================
+
+// =====================================================
+// WALLET ID GENERATION
+// =====================================================
+// User wallets: WLT7770001, WLT7770002, ... (core.generate_user_wallet_id())
+// Agent wallets: AGT8880001, AGT8880002, ... (core.generate_agent_wallet_id())
+// =====================================================
+
+// =====================================================
+// DOUBLE-ENTRY ACCOUNTING
+// =====================================================
+// All financial transactions create paired DEBIT/CREDIT entries in ledger.entries
+// Wallet balances are derived: SUM(CREDIT) - SUM(DEBIT)
+// Never store balances directly - always calculate from ledger
+// =====================================================
+
+// =====================================================
+// AUTH SCHEMA MODELS
+// =====================================================
+
+model User {
+  id            String   @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  phone         String   @unique @db.VarChar(20)
+  passwordHash  String   @map("password_hash") @db.VarChar(255)
+  role          String   @db.VarChar(20)
+  walletId      String   @unique @map("wallet_id") @db.VarChar(20)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  wallets               Wallet[]
+  otps                  Otp[]
+  devices               Device[]
+  feeConfigs            FeeConfig[]
+  commissionConfigs     CommissionConfig[]
+  exchangeRates         ExchangeRate[]
+  exchangeRateHistory   ExchangeRateHistory[]
+  walletStateChanges    WalletStateHistory[]
+  auditEntries          AuditEntry[]
+  reconciliationJobs    ReconciliationJob[]
+  resolvedDiscrepancies ReconciliationDiscrepancy[]   @relation("ResolvedBy")
+
+  @@map("users")
+  @@schema("auth")
+}
+
+model Otp {
+  id        String   @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  code      String   @db.VarChar(6)
+  expiresAt DateTime @map("expires_at") @db.Timestamp(6)
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("otps")
+  @@schema("auth")
+}
+
+model Device {
+  id                String   @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  deviceFingerprint String   @map("device_fingerprint") @db.VarChar(255)
+  ipAddress         String?  @map("ip_address") @db.VarChar(45)
+  userAgent         String?  @map("user_agent")
+  firstSeenAt       DateTime @default(now()) @map("first_seen_at") @db.Timestamp(6)
+  lastActiveAt      DateTime @default(now()) @map("last_active_at") @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([deviceFingerprint])
+  @@map("devices")
+  @@schema("auth")
+}
+
+model TokenBlacklist {
+  id        String   @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  tokenHash String   @unique @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime @map("expires_at") @db.Timestamp(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([expiresAt])
+  @@map("token_blacklist")
+  @@schema("auth")
+}
+
+// =====================================================
+// CORE SCHEMA MODELS
+// =====================================================
+
+model Wallet {
+  id        String   @id @db.VarChar(20)
+  ownerId   String   @map("owner_id") @db.Uuid
+  type      String   @db.VarChar(10)
+  state     String   @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  owner                     User                       @relation(fields: [ownerId], references: [id])
+  stateHistory              WalletStateHistory[]
+  sourceTransactions        Transaction[]          @relation("SourceWallet")
+  destinationTransactions   Transaction[]          @relation("DestinationWallet")
+  ledgerEntries             LedgerEntry[]
+
+  @@index([ownerId])
+  @@index([type])
+  @@index([state])
+  @@map("wallets")
+  @@schema("core")
+}
+
+model WalletStateHistory {
+  id        String   @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  walletId  String   @map("wallet_id") @db.VarChar(20)
+  oldState  String   @map("old_state") @db.VarChar(20)
+  newState  String   @map("new_state") @db.VarChar(20)
+  reason    String?
+  changedBy String?  @map("changed_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [changedBy], references: [id])
+
+  @@index([walletId])
+  @@index([createdAt])
+  @@map("wallet_state_history")
+  @@schema("core")
+}
+
+model Transaction {
+  id                   String    @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  type                 String    @db.VarChar(30)
+  status               String    @db.VarChar(20)
+  sourceWalletId       String?   @map("source_wallet_id") @db.VarChar(20)
+  destinationWalletId  String?   @map("destination_wallet_id") @db.VarChar(20)
+  currency             String    @db.VarChar(3)
+  amount               Decimal   @db.Decimal(19, 2)
+  fee                  Decimal   @default(0) @db.Decimal(19, 2)
+  commission           Decimal?  @db.Decimal(19, 2)
+  exchangeRate         Decimal?  @map("exchange_rate") @db.Decimal(19, 8)
+  idempotencyKey       String    @unique @map("idempotency_key") @db.VarChar(255)
+  metadata             Json?     @db.JsonB
+  verificationHash     String?   @map("verification_hash") @db.VarChar(64)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  completedAt          DateTime? @map("completed_at") @db.Timestamp(6)
+
+  sourceWallet      Wallet?                     @relation("SourceWallet", fields: [sourceWalletId], references: [id])
+  destinationWallet Wallet?                     @relation("DestinationWallet", fields: [destinationWalletId], references: [id])
+  ledgerEntries     LedgerEntry[]
+  discrepancies     ReconciliationDiscrepancy[]
+
+  @@index([sourceWalletId])
+  @@index([destinationWalletId])
+  @@index([idempotencyKey])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@map("transactions")
+  @@schema("core")
+}
+
+model FeeConfig {
+  id              String   @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  transactionType String   @map("transaction_type") @db.VarChar(30)
+  feeType         String   @map("fee_type") @db.VarChar(20)
+  fixedAmount     Decimal? @map("fixed_amount") @db.Decimal(19, 2)
+  percentage      Decimal? @db.Decimal(5, 2)
+  tiers           Json?    @db.JsonB
+  active          Boolean  @default(true)
+  createdBy       String   @map("created_by") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@index([transactionType])
+  @@index([active])
+  @@map("fee_configs")
+  @@schema("core")
+}
+
+model CommissionConfig {
+  id              String   @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  transactionType String   @map("transaction_type") @db.VarChar(30)
+  commissionType  String   @map("commission_type") @db.VarChar(20)
+  fixedAmount     Decimal? @map("fixed_amount") @db.Decimal(19, 2)
+  percentage      Decimal? @db.Decimal(5, 2)
+  tiers           Json?    @db.JsonB
+  active          Boolean  @default(true)
+  createdBy       String   @map("created_by") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@index([transactionType])
+  @@index([active])
+  @@map("commission_configs")
+  @@schema("core")
+}
+
+model ExchangeRate {
+  id           String   @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  fromCurrency String   @map("from_currency") @db.VarChar(3)
+  toCurrency   String   @map("to_currency") @db.VarChar(3)
+  rate         Decimal  @db.Decimal(19, 8)
+  updatedBy    String   @map("updated_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  updater User @relation(fields: [updatedBy], references: [id])
+
+  @@unique([fromCurrency, toCurrency])
+  @@index([fromCurrency, toCurrency])
+  @@map("exchange_rates")
+  @@schema("core")
+}
+
+model ExchangeRateHistory {
+  id           String   @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  fromCurrency String   @map("from_currency") @db.VarChar(3)
+  toCurrency   String   @map("to_currency") @db.VarChar(3)
+  rate         Decimal  @db.Decimal(19, 8)
+  updatedBy    String   @map("updated_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  updater User @relation(fields: [updatedBy], references: [id])
+
+  @@index([fromCurrency, toCurrency])
+  @@index([createdAt])
+  @@map("exchange_rate_history")
+  @@schema("core")
+}
+
+// =====================================================
+// LEDGER SCHEMA MODELS
+// =====================================================
+
+model LedgerEntry {
+  id            String   @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  transactionId String   @map("transaction_id") @db.Uuid
+  walletId      String   @map("wallet_id") @db.VarChar(20)
+  currency      String   @db.VarChar(3)
+  amount        Decimal  @db.Decimal(19, 2)
+  entryType     String   @map("entry_type") @db.VarChar(10)
+  description   String?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  wallet      Wallet      @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  @@index([transactionId])
+  @@index([walletId, currency])
+  @@index([createdAt])
+  @@map("entries")
+  @@schema("ledger")
+}
+
+// =====================================================
+// AUDIT SCHEMA MODELS
+// =====================================================
+
+model AuditEntry {
+  id         String   @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String   @map("entity_id") @db.VarChar(255)
+  action     String   @db.VarChar(100)
+  actorId    String?  @map("actor_id") @db.Uuid
+  metadata   Json?    @db.JsonB
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("entries")
+  @@schema("audit")
+}
+
+model ReconciliationJob {
+  id                   String    @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  jobType              String    @map("job_type") @db.VarChar(50)
+  status               String    @db.VarChar(20)
+  startDate            DateTime  @map("start_date") @db.Date
+  endDate              DateTime  @map("end_date") @db.Date
+  totalTransactions    Int       @default(0) @map("total_transactions")
+  matchedTransactions  Int       @default(0) @map("matched_transactions")
+  discrepanciesFound   Int       @default(0) @map("discrepancies_found")
+  startedAt            DateTime? @map("started_at") @db.Timestamp(6)
+  completedAt          DateTime? @map("completed_at") @db.Timestamp(6)
+  createdBy            String?   @map("created_by") @db.Uuid
+  errorMessage         String?   @map("error_message")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+
+  creator       User?                       @relation(fields: [createdBy], references: [id])
+  discrepancies ReconciliationDiscrepancy[]
+
+  @@index([jobType])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("reconciliation_jobs")
+  @@schema("audit")
+}
+
+model ReconciliationDiscrepancy {
+  id                String    @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  jobId             String    @map("job_id") @db.Uuid
+  discrepancyType   String    @map("discrepancy_type") @db.VarChar(50)
+  severity          String    @db.VarChar(20)
+  provider          String?   @db.VarChar(20)
+  providerReference String?   @map("provider_reference") @db.VarChar(100)
+  transactionId     String?   @map("transaction_id") @db.Uuid
+  expectedAmount    Decimal?  @map("expected_amount") @db.Decimal(19, 2)
+  actualAmount      Decimal?  @map("actual_amount") @db.Decimal(19, 2)
+  details           Json?     @db.JsonB
+  status            String    @default("PENDING") @db.VarChar(20)
+  resolutionNotes   String?   @map("resolution_notes")
+  resolvedBy        String?   @map("resolved_by") @db.Uuid
+  resolvedAt        DateTime? @map("resolved_at") @db.Timestamp(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+
+  job         ReconciliationJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  transaction Transaction?      @relation(fields: [transactionId], references: [id])
+  resolver    User?             @relation("ResolvedBy", fields: [resolvedBy], references: [id])
+
+  @@index([jobId])
+  @@index([status])
+  @@index([severity])
+  @@map("reconciliation_discrepancies")
+  @@schema("audit")
+}
+
+// =====================================================
+// SERVICES SCHEMA MODELS
+// =====================================================
+
+model MpesaLog {
+  id           String   @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  mpesaReceipt String   @unique @map("mpesa_receipt") @db.VarChar(50)
+  phone        String   @db.VarChar(20)
+  amount       Decimal  @db.Decimal(19, 2)
+  rawPayload   Json     @map("raw_payload") @db.JsonB
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([mpesaReceipt])
+  @@index([phone])
+  @@map("mpesa_logs")
+  @@schema("services")
+}
+
+model SmsLog {
+  id                String   @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  recipient         String   @db.VarChar(20)
+  message           String
+  cost              Decimal? @db.Decimal(10, 4)
+  status            String   @db.VarChar(20)
+  providerMessageId String?  @map("provider_message_id") @db.VarChar(255)
+  errorMessage      String?  @map("error_message")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([recipient])
+  @@index([createdAt])
+  @@map("sms_logs")
+  @@schema("services")
+}
+
+model PaystackLog {
+  id                String   @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  paystackReference String   @unique @map("paystack_reference") @db.VarChar(100)
+  email             String?  @db.VarChar(255)
+  amount            Decimal  @db.Decimal(19, 2)
+  currency          String   @default("KES") @db.VarChar(3)
+  status            String   @db.VarChar(20)
+  gatewayResponse   String?  @map("gateway_response") @db.VarChar(255)
+  rawPayload        Json     @map("raw_payload") @db.JsonB
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([paystackReference])
+  @@map("paystack_logs")
+  @@schema("services")
+}
