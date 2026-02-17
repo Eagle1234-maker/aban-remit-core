@@ -4,22 +4,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from 'sonner';
 import { Send, Wallet, Phone, Loader2 } from 'lucide-react';
+import { useSendMoney } from '@/hooks/use-api';
 
 const SendMoney = () => {
   const [amount, setAmount] = useState('');
   const [recipient, setRecipient] = useState('');
   const [pin, setPin] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('wallet');
+  const sendMutation = useSendMoney();
 
   const handleSend = async () => {
-    setLoading(true);
-    await new Promise(r => setTimeout(r, 1200));
-    toast.success(`KES ${Number(amount).toLocaleString()} sent successfully!`);
-    setAmount(''); setRecipient(''); setPin('');
-    setLoading(false);
+    const recipientType = activeTab as 'wallet' | 'phone' | 'agent';
+    sendMutation.mutate(
+      { recipient, recipientType, amount: Number(amount), pin },
+      { onSuccess: () => { setAmount(''); setRecipient(''); setPin(''); } }
+    );
   };
 
   return (
@@ -29,7 +29,7 @@ const SendMoney = () => {
         <p className="text-muted-foreground">Transfer funds instantly</p>
       </div>
 
-      <Tabs defaultValue="wallet">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="w-full">
           <TabsTrigger value="wallet" className="flex-1 gap-2"><Wallet className="h-4 w-4" /> To Wallet</TabsTrigger>
           <TabsTrigger value="phone" className="flex-1 gap-2"><Phone className="h-4 w-4" /> To Phone</TabsTrigger>
@@ -57,18 +57,12 @@ const SendMoney = () => {
                   <Label>Amount (KES)</Label>
                   <Input type="number" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
                 </div>
-                {amount && (
-                  <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
-                    <div className="flex justify-between"><span className="text-muted-foreground">Fee</span><span>KES 25</span></div>
-                    <div className="flex justify-between font-medium"><span>Total</span><span>KES {(Number(amount) + 25).toLocaleString()}</span></div>
-                  </div>
-                )}
                 <div className="space-y-2">
                   <Label>Transaction PIN</Label>
                   <Input type="password" maxLength={4} placeholder="••••" value={pin} onChange={e => setPin(e.target.value)} />
                 </div>
-                <Button className="w-full" disabled={!amount || !recipient || pin.length < 4 || loading} onClick={handleSend}>
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Send Money
+                <Button className="w-full" disabled={!amount || !recipient || pin.length < 4 || sendMutation.isPending} onClick={handleSend}>
+                  {sendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Send Money
                 </Button>
               </CardContent>
             </Card>

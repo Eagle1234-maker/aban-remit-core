@@ -10,6 +10,7 @@ import LoginPage from "@/components/auth/LoginPage";
 import RegisterPage from "@/components/auth/RegisterPage";
 import OtpPage from "@/components/auth/OtpPage";
 import NotFound from "./pages/NotFound";
+import { Loader2 } from "lucide-react";
 
 // User pages
 import UserOverview from "@/pages/user/UserOverview";
@@ -37,17 +38,32 @@ import AdminFees from "@/pages/admin/AdminFees";
 import AdminExchange from "@/pages/admin/AdminExchange";
 import AdminSms from "@/pages/admin/AdminSms";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+});
+
+const LoadingScreen = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+);
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, pendingVerification } = useAuth();
+  const { isAuthenticated, pendingVerification, isLoading } = useAuth();
+  if (isLoading) return <LoadingScreen />;
   if (pendingVerification) return <Navigate to="/verify-otp" replace />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <DashboardLayout>{children}</DashboardLayout>;
 };
 
 const AuthRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return <LoadingScreen />;
   if (isAuthenticated) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 };

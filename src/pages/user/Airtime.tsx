@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { useBuyAirtime } from '@/hooks/use-api';
 
 const carriers = ['Safaricom', 'Airtel', 'Telkom'];
 
@@ -13,14 +13,13 @@ const Airtime = () => {
   const [carrier, setCarrier] = useState('');
   const [phone, setPhone] = useState('');
   const [amount, setAmount] = useState('');
-  const [loading, setLoading] = useState(false);
+  const airtimeMutation = useBuyAirtime();
 
-  const handleBuy = async () => {
-    setLoading(true);
-    await new Promise(r => setTimeout(r, 1000));
-    toast.success(`KES ${amount} airtime sent to ${phone}!`);
-    setAmount(''); setPhone('');
-    setLoading(false);
+  const handleBuy = () => {
+    airtimeMutation.mutate(
+      { carrier, phone, amount: Number(amount) },
+      { onSuccess: () => { setAmount(''); setPhone(''); } }
+    );
   };
 
   return (
@@ -54,8 +53,8 @@ const Airtime = () => {
               <Button key={v} variant="outline" size="sm" onClick={() => setAmount(String(v))}>{v}</Button>
             ))}
           </div>
-          <Button className="w-full" disabled={!carrier || !phone || !amount || loading} onClick={handleBuy}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Buy Airtime
+          <Button className="w-full" disabled={!carrier || !phone || !amount || airtimeMutation.isPending} onClick={handleBuy}>
+            {airtimeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Buy Airtime
           </Button>
         </CardContent>
       </Card>

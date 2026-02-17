@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/types/auth';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   LayoutDashboard, Wallet, Send, ArrowDownToLine, Phone, ArrowLeftRight,
   List, FileText, User, Shield, Users, Settings, LogOut, Menu, X,
@@ -65,7 +64,7 @@ const getNavItems = (role: UserRole): NavItem[] => {
 };
 
 const DashboardLayout = ({ children }: { children: ReactNode }) => {
-  const { user, logout, switchRole } = useAuth();
+  const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -73,12 +72,6 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
   if (!user) return null;
 
   const navItems = getNavItems(user.role);
-
-  const handleRoleSwitch = (role: string) => {
-    switchRole(role as UserRole);
-    const paths: Record<string, string> = { user: '/dashboard', agent: '/agent', admin: '/admin', superadmin: '/admin' };
-    navigate(paths[role] || '/dashboard');
-  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -127,22 +120,6 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
           })}
         </nav>
 
-        {/* Role Switcher (Dev) */}
-        <div className="px-3 py-3 border-t border-sidebar-border">
-          <p className="text-[10px] uppercase tracking-wider text-sidebar-foreground/40 mb-2 px-1">Dev: Switch Role</p>
-          <Select value={user.role} onValueChange={handleRoleSwitch}>
-            <SelectTrigger className="h-8 text-xs bg-sidebar-accent border-sidebar-border text-sidebar-foreground">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="user">User</SelectItem>
-              <SelectItem value="agent">Agent</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="superadmin">Super Admin</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
         <div className="px-3 py-3 border-t border-sidebar-border">
           <div className="flex items-center gap-3 px-1 mb-3">
             <div className="h-8 w-8 rounded-full bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground text-sm font-medium">
@@ -150,7 +127,7 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-accent-foreground truncate">{user.fullName}</p>
-              <p className="text-xs text-sidebar-foreground/60 truncate">{user.email}</p>
+              <p className="text-xs text-sidebar-foreground/60 truncate">{user.phone}</p>
             </div>
           </div>
           <Button

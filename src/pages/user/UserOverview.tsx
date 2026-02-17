@@ -1,16 +1,23 @@
 import { useAuth } from '@/contexts/AuthContext';
 import StatCard from '@/components/dashboard/StatCard';
 import TransactionTable from '@/components/dashboard/TransactionTable';
-import { mockTransactions } from '@/data/mock';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Wallet, Send, ArrowDownToLine, ArrowLeftRight } from 'lucide-react';
+import { Wallet, Send, ArrowDownToLine, ArrowLeftRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import { useWalletBalance, useTransactions } from '@/hooks/use-api';
 
 const UserOverview = () => {
   const { user } = useAuth();
+  const { data: balanceData, isLoading: balanceLoading } = useWalletBalance();
+  const { data: txData, isLoading: txLoading } = useTransactions({ limit: 5 });
+
   if (!user) return null;
+
+  const balance = balanceData?.balances?.KES ?? 0;
+  const walletId = balanceData?.walletId ?? user.walletNumber;
+  const transactions = txData?.transactions ?? [];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -25,8 +32,12 @@ const UserOverview = () => {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm opacity-80">Wallet Balance</p>
-              <p className="text-3xl font-display font-bold mt-1">KES {user.walletBalance.toLocaleString()}</p>
-              <p className="text-sm opacity-70 mt-2">{user.walletNumber}</p>
+              {balanceLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin mt-2" />
+              ) : (
+                <p className="text-3xl font-display font-bold mt-1">KES {balance.toLocaleString()}</p>
+              )}
+              <p className="text-sm opacity-70 mt-2">{walletId}</p>
             </div>
             <Badge variant="secondary" className="bg-primary-foreground/20 text-primary-foreground border-0">
               {user.kycStatus === 'approved' ? '✓ Verified' : user.kycStatus}
@@ -56,13 +67,6 @@ const UserOverview = () => {
         ))}
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard title="Total Sent" value="KES 45,200" icon={<Send className="h-5 w-5" />} trend={{ value: '12%', positive: true }} />
-        <StatCard title="Total Received" value="KES 62,800" icon={<ArrowDownToLine className="h-5 w-5" />} trend={{ value: '8%', positive: true }} />
-        <StatCard title="Transactions" value="24" subtitle="This month" icon={<ArrowLeftRight className="h-5 w-5" />} />
-      </div>
-
       {/* Recent Transactions */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -72,7 +76,13 @@ const UserOverview = () => {
           </Button>
         </CardHeader>
         <CardContent className="p-0">
-          <TransactionTable transactions={mockTransactions} compact />
+          {txLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : transactions.length > 0 ? (
+            <TransactionTable transactions={transactions} compact />
+          ) : (
+            <p className="text-center py-8 text-muted-foreground">No transactions yet</p>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -4,11 +4,31 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { FileText, Download } from 'lucide-react';
+import { FileText, Download, Loader2 } from 'lucide-react';
+import { api } from '@/services/api';
 
 const Statement = () => {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleDownload = async () => {
+    setLoading(true);
+    try {
+      const blob = await api.downloadStatement(fromDate, toDate);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `statement-${fromDate}-${toDate}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Statement downloaded!');
+    } catch {
+      toast.error('Failed to download statement');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="max-w-lg mx-auto space-y-6 animate-fade-in">
@@ -29,11 +49,8 @@ const Statement = () => {
               <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} />
             </div>
           </div>
-          <div className="rounded-lg bg-muted p-3 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Statement fee</span><span>KES 50</span></div>
-          </div>
-          <Button className="w-full gap-2" disabled={!fromDate || !toDate} onClick={() => toast.success('Statement downloaded!')}>
-            <Download className="h-4 w-4" /> Download PDF
+          <Button className="w-full gap-2" disabled={!fromDate || !toDate || loading} onClick={handleDownload}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Download PDF
           </Button>
         </CardContent>
       </Card>
