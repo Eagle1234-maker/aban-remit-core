@@ -1,20 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import TransactionTable from '@/components/dashboard/TransactionTable';
-import { mockTransactions } from '@/data/mock';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
+import { useTransactions } from '@/hooks/use-api';
 
 const Transactions = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const { data, isLoading } = useTransactions({ type: typeFilter, status: statusFilter });
 
-  const filtered = mockTransactions.filter(tx => {
-    if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
-    if (statusFilter !== 'all' && tx.status !== statusFilter) return false;
-    return true;
-  });
+  const transactions = data?.transactions ?? [];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -53,7 +50,13 @@ const Transactions = () => {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <TransactionTable transactions={filtered} />
+          {isLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : transactions.length > 0 ? (
+            <TransactionTable transactions={transactions} />
+          ) : (
+            <p className="text-center py-8 text-muted-foreground">No transactions found</p>
+          )}
         </CardContent>
       </Card>
     </div>

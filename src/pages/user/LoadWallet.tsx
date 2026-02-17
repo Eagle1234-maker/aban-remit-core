@@ -4,19 +4,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from 'sonner';
 import { Smartphone, CreditCard, Loader2 } from 'lucide-react';
+import { useDeposit } from '@/hooks/use-api';
 
 const LoadWallet = () => {
   const [amount, setAmount] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [phone, setPhone] = useState('');
+  const depositMutation = useDeposit();
 
-  const handleLoad = async (method: string) => {
-    setLoading(true);
-    await new Promise(r => setTimeout(r, 1200));
-    toast.success(`KES ${Number(amount).toLocaleString()} loaded via ${method}!`);
-    setAmount('');
-    setLoading(false);
+  const handleLoad = (method: string) => {
+    depositMutation.mutate(
+      { amount: Number(amount), currency: 'KES', method, phone },
+      { onSuccess: () => setAmount('') }
+    );
   };
 
   return (
@@ -38,14 +38,14 @@ const LoadWallet = () => {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>MPESA Phone Number</Label>
-                <Input placeholder="+254712345678" />
+                <Input placeholder="+254712345678" value={phone} onChange={e => setPhone(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label>Amount (KES)</Label>
                 <Input type="number" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
               </div>
-              <Button className="w-full" disabled={!amount || loading} onClick={() => handleLoad('MPESA')}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Pay with MPESA
+              <Button className="w-full" disabled={!amount || depositMutation.isPending} onClick={() => handleLoad('mpesa')}>
+                {depositMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Pay with MPESA
               </Button>
             </CardContent>
           </Card>
@@ -59,14 +59,8 @@ const LoadWallet = () => {
                 <Label>Amount (KES)</Label>
                 <Input type="number" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
               </div>
-              {amount && (
-                <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Processing fee</span><span>KES {Math.round(Number(amount) * 0.015)}</span></div>
-                  <div className="flex justify-between font-medium"><span>Total charge</span><span>KES {(Number(amount) + Math.round(Number(amount) * 0.015)).toLocaleString()}</span></div>
-                </div>
-              )}
-              <Button className="w-full" disabled={!amount || loading} onClick={() => handleLoad('Card')}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Pay with Card
+              <Button className="w-full" disabled={!amount || depositMutation.isPending} onClick={() => handleLoad('card')}>
+                {depositMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Pay with Card
               </Button>
             </CardContent>
           </Card>

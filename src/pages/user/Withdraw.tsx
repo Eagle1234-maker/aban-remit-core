@@ -4,19 +4,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from 'sonner';
 import { Landmark, Smartphone, Loader2 } from 'lucide-react';
+import { useWithdrawal } from '@/hooks/use-api';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Withdraw = () => {
+  const { user } = useAuth();
   const [amount, setAmount] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [agentCode, setAgentCode] = useState('');
+  const withdrawMutation = useWithdrawal();
 
-  const handleWithdraw = async (method: string) => {
-    setLoading(true);
-    await new Promise(r => setTimeout(r, 1200));
-    toast.success(`KES ${Number(amount).toLocaleString()} withdrawal via ${method} initiated!`);
-    setAmount('');
-    setLoading(false);
+  const handleWithdraw = (method: string) => {
+    withdrawMutation.mutate(
+      { amount: Number(amount), currency: 'KES', phone: user?.phone || '' },
+      { onSuccess: () => setAmount('') }
+    );
   };
 
   return (
@@ -38,21 +40,15 @@ const Withdraw = () => {
                 {tab === 'agent' && (
                   <div className="space-y-2">
                     <Label>Agent Code</Label>
-                    <Input placeholder="AGT8880001" />
+                    <Input placeholder="AGT8880001" value={agentCode} onChange={e => setAgentCode(e.target.value)} />
                   </div>
                 )}
                 <div className="space-y-2">
                   <Label>Amount (KES)</Label>
                   <Input type="number" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
                 </div>
-                {amount && (
-                  <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
-                    <div className="flex justify-between"><span className="text-muted-foreground">Fee</span><span>KES {tab === 'mpesa' ? 50 : 30}</span></div>
-                    <div className="flex justify-between font-medium"><span>You receive</span><span>KES {(Number(amount) - (tab === 'mpesa' ? 50 : 30)).toLocaleString()}</span></div>
-                  </div>
-                )}
-                <Button className="w-full" disabled={!amount || loading} onClick={() => handleWithdraw(tab)}>
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Withdraw
+                <Button className="w-full" disabled={!amount || withdrawMutation.isPending} onClick={() => handleWithdraw(tab)}>
+                  {withdrawMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Withdraw
                 </Button>
               </CardContent>
             </Card>

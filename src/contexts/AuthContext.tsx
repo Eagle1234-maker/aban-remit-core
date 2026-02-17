@@ -1,16 +1,18 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { User, UserRole } from '@/types/auth';
-import { mockUsers } from '@/data/mock';
+import { api, ApiError } from '@/services/api';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  isLoading: boolean;
+  login: (phone: string, password: string) => Promise<boolean>;
   register: (data: RegisterData) => Promise<boolean>;
   verifyOtp: (otp: string) => Promise<boolean>;
+  requestOtp: (method: 'sms' | 'email') => Promise<boolean>;
   logout: () => void;
-  switchRole: (role: UserRole) => void;
   pendingVerification: boolean;
+  refreshUser: () => Promise<void>;
 }
 
 interface RegisterData {
@@ -29,45 +31,131 @@ export const useAuth = () => {
   return ctx;
 };
 
+function mapApiUser(apiUser: any): User {
+  return {
+    id: apiUser.id,
+    fullName: apiUser.fullName || apiUser.phone,
+    email: apiUser.email || '',
+    phone: apiUser.phone,
+    role: (apiUser.role?.toLowerCase() || 'user') as UserRole,
+    walletNumber: apiUser.walletId || '',
+    walletBalance: apiUser.walletBalance ?? 0,
+    currency: apiUser.currency || 'KES',
+    kycStatus: (apiUser.kycStatus?.toLowerCase() || 'pending') as 'pending' | 'approved' | 'rejected',
+    createdAt: apiUser.createdAt || '',
+    floatBalance: apiUser.floatBalance,
+    commissionBalance: apiUser.commissionBalance,
+  };
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [pendingVerification, setPendingVerification] = useState(false);
 
-  const login = useCallback(async (_email: string, _password: string): Promise<boolean> => {
-    // Simulate API delay
-    await new Promise(r => setTimeout(r, 800));
-    setUser(mockUsers.user);
-    return true;
+  // Restore session on mount
+  useEffect(() => {
+    const restore = async () => {
+      const tokens = api.getTokens();
+      if (!tokens) {
+        setIsLoading(false);
+        return;
+      }
+      try {
+        const data = await api.getMe();
+        setUser(mapApiUser(data.user));
+      } catch {
+        api.clearTokens();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    restore();
   }, []);
 
-  const register = useCallback(async (_data: RegisterData): Promise<boolean> => {
-    await new Promise(r => setTimeout(r, 800));
-    setPendingVerification(true);
-    return true;
+  const refreshUser = useCallback(async () => {
+    try {
+      const data = await api.getMe();
+      setUser(mapApiUser(data.user));
+    } catch {
+      // silent
+    }
   }, []);
 
-  const verifyOtp = useCallback(async (_otp: string): Promise<boolean> => {
-    await new Promise(r => setTimeout(r, 800));
-    setPendingVerification(false);
-    setUser(mockUsers.user);
-    return true;
+  const login = useCallback(async (phone: string, password: string): Promise<boolean> => {
+    try {
+      const data = await api.login(phone, password);
+      setUser(mapApiUser(data.user));
+      return true;
+    } catch (err) {
+      if (err instanceof ApiError) {
+        throw err;
+      }
+      return false;
+    }
   }, []);
+
+  const register = useCallback(async (data: RegisterData): Promise<boolean> => {
+    try {
+      await api.register({
+        phone: data.phone,
+        password: data.password,
+        role: data.role,
+        fullName: data.fullName,
+        email: data.email,
+      });
+      setPendingVerification(true);
+      return true;
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      return false;
+    }
+  }, []);
+
+  const requestOtp = useCallback(async (method: 'sms' | 'email'): Promise<boolean> => {
+    try {
+      await api.requestOtp(method);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const verifyOtp = useCallback(async (otp: string): Promise<boolean> => {
+    try {
+      const data = await api.verifyOtp(otp);
+      setPendingVerification(false);
+      if (data.user) {
+        setUser(mapApiUser(data.user));
+      } else {
+        await refreshUser();
+      }
+      return true;
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      return false;
+    }
+  }, [refreshUser]);
 
   const logout = useCallback(() => {
+    api.logout();
     setUser(null);
     setPendingVerification(false);
   }, []);
 
-  const switchRole = useCallback((role: UserRole) => {
-    const roleKey = role === 'superadmin' ? 'admin' : role;
-    const mockUser = mockUsers[roleKey];
-    if (mockUser) {
-      setUser({ ...mockUser, role });
-    }
-  }, []);
-
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, register, verifyOtp, logout, switchRole, pendingVerification }}>
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated: !!user,
+      isLoading,
+      login,
+      register,
+      verifyOtp,
+      requestOtp,
+      logout,
+      pendingVerification,
+      refreshUser,
+    }}>
       {children}
     </AuthContext.Provider>
   );

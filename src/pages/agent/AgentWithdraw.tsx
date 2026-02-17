@@ -3,21 +3,20 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { useAgentWithdrawMutation } from '@/hooks/use-api';
 
 const AgentWithdraw = () => {
   const [wallet, setWallet] = useState('');
   const [amount, setAmount] = useState('');
   const [pin, setPin] = useState('');
-  const [loading, setLoading] = useState(false);
+  const withdrawMutation = useAgentWithdrawMutation();
 
-  const handleWithdraw = async () => {
-    setLoading(true);
-    await new Promise(r => setTimeout(r, 1000));
-    toast.success(`KES ${Number(amount).toLocaleString()} withdrawn for ${wallet}`);
-    setWallet(''); setAmount(''); setPin('');
-    setLoading(false);
+  const handleWithdraw = () => {
+    withdrawMutation.mutate(
+      { walletNumber: wallet, amount: Number(amount), pin },
+      { onSuccess: () => { setWallet(''); setAmount(''); setPin(''); } }
+    );
   };
 
   return (
@@ -31,8 +30,8 @@ const AgentWithdraw = () => {
           <div className="space-y-2"><Label>User Wallet Number</Label><Input placeholder="WLT7770001" value={wallet} onChange={e => setWallet(e.target.value)} /></div>
           <div className="space-y-2"><Label>Amount (KES)</Label><Input type="number" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} /></div>
           <div className="space-y-2"><Label>Confirm PIN</Label><Input type="password" maxLength={4} placeholder="••••" value={pin} onChange={e => setPin(e.target.value)} /></div>
-          <Button className="w-full" disabled={!wallet || !amount || pin.length < 4 || loading} onClick={handleWithdraw}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Process Withdrawal
+          <Button className="w-full" disabled={!wallet || !amount || pin.length < 4 || withdrawMutation.isPending} onClick={handleWithdraw}>
+            {withdrawMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Process Withdrawal
           </Button>
         </CardContent>
       </Card>
