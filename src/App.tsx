@@ -56,15 +56,18 @@ const LoadingScreen = () => (
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, pendingVerification, isLoading } = useAuth();
   if (isLoading) return <LoadingScreen />;
-  if (pendingVerification) return <Navigate to="/verify-otp" replace />;
+  if (pendingVerification && !isAuthenticated) return <Navigate to="/verify-otp" replace />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <DashboardLayout>{children}</DashboardLayout>;
 };
 
 const AuthRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   if (isLoading) return <LoadingScreen />;
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  if (isAuthenticated && user) {
+    const dashPath = user.role === 'admin' || user.role === 'superadmin' ? '/admin' : user.role === 'agent' ? '/agent' : '/dashboard';
+    return <Navigate to={dashPath} replace />;
+  }
   return <>{children}</>;
 };
 

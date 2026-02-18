@@ -1,5 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { Construction } from 'lucide-react';
+import { Clock } from 'lucide-react';
 
 const PlaceholderPage = ({ title, description }: { title: string; description: string }) => (
   <div className="space-y-6 animate-fade-in">
@@ -9,10 +9,10 @@ const PlaceholderPage = ({ title, description }: { title: string; description: s
     </div>
     <Card>
       <CardContent className="p-12 flex flex-col items-center justify-center text-center">
-        <Construction className="h-12 w-12 text-muted-foreground mb-4" />
-        <h2 className="text-lg font-display font-semibold mb-2">Coming Soon</h2>
+        <Clock className="h-12 w-12 text-muted-foreground mb-4" />
+        <h2 className="text-lg font-display font-semibold mb-2">Under Development</h2>
         <p className="text-sm text-muted-foreground max-w-sm">
-          This page is ready for backend integration. The UI structure is in place and will be fully functional once connected.
+          This feature is currently being built and will be available soon.
         </p>
       </CardContent>
     </Card>
