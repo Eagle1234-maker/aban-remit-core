@@ -27,9 +27,16 @@ const RegisterPage = () => {
     }
     setError('');
     setLoading(true);
-    await register(form);
-    setLoading(false);
-    navigate('/verify-otp');
+    try {
+      const success = await register(form);
+      if (success) {
+        navigate('/verify-otp');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
