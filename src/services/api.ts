@@ -4,7 +4,7 @@
  */
 
 // ⚠️ UPDATE THIS TO YOUR LIVE API URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.abanremit.com';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://laban.loveameriafrikah.co.ke';
 
 interface TokenPair {
   token: string;
