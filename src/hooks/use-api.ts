@@ -1,11 +1,22 @@
 /**
  * React Query hooks for all API data fetching
- * Replaces all mock data with real API calls
+ * Adapted to follow-plus.loveameriafrikah.co.ke backend contract
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/services/api';
 import { toast } from 'sonner';
+
+// --- Health ---
+
+export function useHealthCheck() {
+  return useQuery({
+    queryKey: ['health'],
+    queryFn: () => api.getHealth(),
+    retry: 2,
+    staleTime: 60_000,
+  });
+}
 
 // --- Wallet ---
 
@@ -31,6 +42,7 @@ export function useTransactions(params?: { type?: string; status?: string; page?
   return useQuery({
     queryKey: ['transactions', params],
     queryFn: () => api.getTransactions(params),
+    retry: 1,
   });
 }
 
@@ -40,6 +52,7 @@ export function useSystemStats() {
   return useQuery({
     queryKey: ['system', 'stats'],
     queryFn: () => api.getSystemStats(),
+    retry: 1,
   });
 }
 
@@ -47,6 +60,7 @@ export function useUsers(params?: { search?: string; page?: number }) {
   return useQuery({
     queryKey: ['users', params],
     queryFn: () => api.getUsers(params),
+    retry: 1,
   });
 }
 
@@ -54,6 +68,7 @@ export function useKycRequests() {
   return useQuery({
     queryKey: ['kyc', 'requests'],
     queryFn: () => api.getKycRequests(),
+    retry: 1,
   });
 }
 
@@ -61,6 +76,7 @@ export function useExchangeRates() {
   return useQuery({
     queryKey: ['exchange-rates'],
     queryFn: () => api.getExchangeRates(),
+    retry: 1,
   });
 }
 
@@ -68,6 +84,7 @@ export function useFeeSettings() {
   return useQuery({
     queryKey: ['fees'],
     queryFn: () => api.getFeeSettings(),
+    retry: 1,
   });
 }
 
@@ -75,6 +92,7 @@ export function useSmsSettings() {
   return useQuery({
     queryKey: ['sms-settings'],
     queryFn: () => api.getSmsSettings(),
+    retry: 1,
   });
 }
 
@@ -84,6 +102,7 @@ export function useAgentStats() {
   return useQuery({
     queryKey: ['agent', 'stats'],
     queryFn: () => api.getAgentStats(),
+    retry: 1,
   });
 }
 
@@ -91,6 +110,7 @@ export function useCommissions() {
   return useQuery({
     queryKey: ['agent', 'commissions'],
     queryFn: () => api.getCommissions(),
+    retry: 1,
   });
 }
 
@@ -113,10 +133,10 @@ export function useSendMoney() {
 export function useDeposit() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { amount: number; currency: string; method: string; phone?: string }) =>
-      api.initiateDeposit(payload),
+    mutationFn: (payload: { amount: number; phone: string }) =>
+      api.depositMpesa(payload),
     onSuccess: () => {
-      toast.success('Deposit initiated!');
+      toast.success('M-Pesa STK push sent! Check your phone.');
       qc.invalidateQueries({ queryKey: ['wallet'] });
       qc.invalidateQueries({ queryKey: ['transactions'] });
     },

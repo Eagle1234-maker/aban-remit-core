@@ -38,7 +38,7 @@ function mapApiUser(apiUser: any): User {
     email: apiUser.email || '',
     phone: apiUser.phone,
     role: (apiUser.role?.toLowerCase() || 'user') as UserRole,
-    walletNumber: apiUser.walletId || '',
+    walletNumber: apiUser.walletId || apiUser.walletNumber || '',
     walletBalance: apiUser.walletBalance ?? 0,
     currency: apiUser.currency || 'KES',
     kycStatus: (apiUser.kycStatus?.toLowerCase() || 'pending') as 'pending' | 'approved' | 'rejected',
@@ -53,57 +53,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [pendingVerification, setPendingVerification] = useState(false);
 
-  // Restore session on mount
+  // Restore session from localStorage (no /auth/me endpoint available)
   useEffect(() => {
-    const restore = async () => {
-      const tokens = api.getTokens();
-      if (!tokens) {
-        setIsLoading(false);
-        return;
-      }
-      try {
-        const data = await api.getMe();
-        setUser(mapApiUser(data.user));
-      } catch {
-        api.clearTokens();
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    restore();
+    const tokens = api.getTokens();
+    const storedUser = api.getStoredUser();
+    if (tokens && storedUser) {
+      setUser(mapApiUser(storedUser));
+    }
+    setIsLoading(false);
   }, []);
 
   const refreshUser = useCallback(async () => {
+    // Try to refresh wallet balance if possible
     try {
-      const data = await api.getMe();
-      setUser(mapApiUser(data.user));
+      const balance = await api.getWalletBalance();
+      setUser(prev => prev ? { ...prev, walletBalance: balance.balance ?? balance.walletBalance ?? prev.walletBalance } : prev);
     } catch {
-      // silent
+      // silent — wallet balance may not be available
     }
   }, []);
 
   const login = useCallback(async (phone: string, password: string): Promise<boolean> => {
     try {
       const data = await api.login(phone, password);
-      setUser(mapApiUser(data.user));
+      if (data.user) {
+        setUser(mapApiUser(data.user));
+      }
       return true;
     } catch (err) {
-      if (err instanceof ApiError) {
-        throw err;
-      }
+      if (err instanceof ApiError) throw err;
       return false;
     }
   }, []);
 
   const register = useCallback(async (data: RegisterData): Promise<boolean> => {
     try {
-      await api.register({
+      const result = await api.register({
         phone: data.phone,
         password: data.password,
         role: data.role,
         fullName: data.fullName,
         email: data.email,
       });
+      // If backend returns user + token directly, user is registered + logged in
+      if (result.user && result.token) {
+        setUser(mapApiUser(result.user));
+        return true;
+      }
+      // Otherwise OTP verification is required
       setPendingVerification(true);
       return true;
     } catch (err) {
@@ -127,15 +124,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setPendingVerification(false);
       if (data.user) {
         setUser(mapApiUser(data.user));
-      } else {
-        await refreshUser();
       }
       return true;
     } catch (err) {
       if (err instanceof ApiError) throw err;
       return false;
     }
-  }, [refreshUser]);
+  }, []);
 
   const logout = useCallback(() => {
     api.logout();
