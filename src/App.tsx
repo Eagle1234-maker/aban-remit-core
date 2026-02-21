@@ -10,7 +10,8 @@ import LoginPage from "@/components/auth/LoginPage";
 import RegisterPage from "@/components/auth/RegisterPage";
 import OtpPage from "@/components/auth/OtpPage";
 import NotFound from "./pages/NotFound";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
+import { useHealthCheck } from "@/hooks/use-api";
 
 // User pages
 import UserOverview from "@/pages/user/UserOverview";
@@ -71,52 +72,66 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const MaintenanceBanner = () => {
+  const { isError, error } = useHealthCheck();
+  if (!isError) return null;
+  return (
+    <div className="fixed top-0 left-0 right-0 z-50 bg-destructive text-destructive-foreground px-4 py-2 flex items-center justify-center gap-2 text-sm">
+      <AlertTriangle className="h-4 w-4" />
+      <span>Backend unavailable. Some features may not work.</span>
+    </div>
+  );
+};
+
 const AppRoutes = () => (
-  <Routes>
-    {/* Auth */}
-    <Route path="/" element={<Navigate to="/login" replace />} />
-    <Route path="/login" element={<AuthRoute><LoginPage /></AuthRoute>} />
-    <Route path="/register" element={<AuthRoute><RegisterPage /></AuthRoute>} />
-    <Route path="/verify-otp" element={<OtpPage />} />
-    <Route path="/forgot-password" element={<AuthRoute><PlaceholderPage title="Forgot Password" description="Reset your password" /></AuthRoute>} />
+  <>
+    <MaintenanceBanner />
+    <Routes>
+      {/* Auth */}
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/login" element={<AuthRoute><LoginPage /></AuthRoute>} />
+      <Route path="/register" element={<AuthRoute><RegisterPage /></AuthRoute>} />
+      <Route path="/verify-otp" element={<OtpPage />} />
+      <Route path="/forgot-password" element={<AuthRoute><PlaceholderPage title="Forgot Password" description="Reset your password" /></AuthRoute>} />
 
-    {/* User Dashboard */}
-    <Route path="/dashboard" element={<ProtectedRoute><UserOverview /></ProtectedRoute>} />
-    <Route path="/dashboard/load" element={<ProtectedRoute><LoadWallet /></ProtectedRoute>} />
-    <Route path="/dashboard/send" element={<ProtectedRoute><SendMoney /></ProtectedRoute>} />
-    <Route path="/dashboard/withdraw" element={<ProtectedRoute><Withdraw /></ProtectedRoute>} />
-    <Route path="/dashboard/airtime" element={<ProtectedRoute><Airtime /></ProtectedRoute>} />
-    <Route path="/dashboard/exchange" element={<ProtectedRoute><Exchange /></ProtectedRoute>} />
-    <Route path="/dashboard/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
-    <Route path="/dashboard/statement" element={<ProtectedRoute><Statement /></ProtectedRoute>} />
-    <Route path="/dashboard/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-    <Route path="/dashboard/security" element={<ProtectedRoute><Security /></ProtectedRoute>} />
+      {/* User Dashboard */}
+      <Route path="/dashboard" element={<ProtectedRoute><UserOverview /></ProtectedRoute>} />
+      <Route path="/dashboard/load" element={<ProtectedRoute><LoadWallet /></ProtectedRoute>} />
+      <Route path="/dashboard/send" element={<ProtectedRoute><SendMoney /></ProtectedRoute>} />
+      <Route path="/dashboard/withdraw" element={<ProtectedRoute><Withdraw /></ProtectedRoute>} />
+      <Route path="/dashboard/airtime" element={<ProtectedRoute><Airtime /></ProtectedRoute>} />
+      <Route path="/dashboard/exchange" element={<ProtectedRoute><Exchange /></ProtectedRoute>} />
+      <Route path="/dashboard/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
+      <Route path="/dashboard/statement" element={<ProtectedRoute><Statement /></ProtectedRoute>} />
+      <Route path="/dashboard/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/dashboard/security" element={<ProtectedRoute><Security /></ProtectedRoute>} />
 
-    {/* Agent Dashboard */}
-    <Route path="/agent" element={<ProtectedRoute><AgentOverview /></ProtectedRoute>} />
-    <Route path="/agent/deposit" element={<ProtectedRoute><AgentDeposit /></ProtectedRoute>} />
-    <Route path="/agent/withdraw" element={<ProtectedRoute><AgentWithdraw /></ProtectedRoute>} />
-    <Route path="/agent/float" element={<ProtectedRoute><PlaceholderPage title="Agent Float" description="Manage your float balance" /></ProtectedRoute>} />
-    <Route path="/agent/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
-    <Route path="/agent/commission" element={<ProtectedRoute><AgentCommission /></ProtectedRoute>} />
-    <Route path="/agent/statement" element={<ProtectedRoute><Statement /></ProtectedRoute>} />
+      {/* Agent Dashboard */}
+      <Route path="/agent" element={<ProtectedRoute><AgentOverview /></ProtectedRoute>} />
+      <Route path="/agent/deposit" element={<ProtectedRoute><AgentDeposit /></ProtectedRoute>} />
+      <Route path="/agent/withdraw" element={<ProtectedRoute><AgentWithdraw /></ProtectedRoute>} />
+      <Route path="/agent/float" element={<ProtectedRoute><PlaceholderPage title="Agent Float" description="Manage your float balance" /></ProtectedRoute>} />
+      <Route path="/agent/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
+      <Route path="/agent/commission" element={<ProtectedRoute><AgentCommission /></ProtectedRoute>} />
+      <Route path="/agent/statement" element={<ProtectedRoute><Statement /></ProtectedRoute>} />
 
-    {/* Admin Dashboard */}
-    <Route path="/admin" element={<ProtectedRoute><AdminOverview /></ProtectedRoute>} />
-    <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
-    <Route path="/admin/agents" element={<ProtectedRoute><PlaceholderPage title="Agent Management" description="Manage all agents" /></ProtectedRoute>} />
-    <Route path="/admin/kyc" element={<ProtectedRoute><AdminKyc /></ProtectedRoute>} />
-    <Route path="/admin/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
-    <Route path="/admin/fees" element={<ProtectedRoute><AdminFees /></ProtectedRoute>} />
-    <Route path="/admin/commission" element={<ProtectedRoute><PlaceholderPage title="Commission Settings" description="Configure agent commissions" /></ProtectedRoute>} />
-    <Route path="/admin/exchange" element={<ProtectedRoute><AdminExchange /></ProtectedRoute>} />
-    <Route path="/admin/sms" element={<ProtectedRoute><AdminSms /></ProtectedRoute>} />
-    <Route path="/admin/reports" element={<ProtectedRoute><PlaceholderPage title="Reports" description="Analytics and reports" /></ProtectedRoute>} />
-    <Route path="/admin/audit" element={<ProtectedRoute><PlaceholderPage title="Audit Logs" description="System audit trail" /></ProtectedRoute>} />
-    <Route path="/admin/settings" element={<ProtectedRoute><PlaceholderPage title="System Settings" description="Global system configuration" /></ProtectedRoute>} />
+      {/* Admin Dashboard */}
+      <Route path="/admin" element={<ProtectedRoute><AdminOverview /></ProtectedRoute>} />
+      <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
+      <Route path="/admin/agents" element={<ProtectedRoute><PlaceholderPage title="Agent Management" description="Manage all agents" /></ProtectedRoute>} />
+      <Route path="/admin/kyc" element={<ProtectedRoute><AdminKyc /></ProtectedRoute>} />
+      <Route path="/admin/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
+      <Route path="/admin/fees" element={<ProtectedRoute><AdminFees /></ProtectedRoute>} />
+      <Route path="/admin/commission" element={<ProtectedRoute><PlaceholderPage title="Commission Settings" description="Configure agent commissions" /></ProtectedRoute>} />
+      <Route path="/admin/exchange" element={<ProtectedRoute><AdminExchange /></ProtectedRoute>} />
+      <Route path="/admin/sms" element={<ProtectedRoute><AdminSms /></ProtectedRoute>} />
+      <Route path="/admin/reports" element={<ProtectedRoute><PlaceholderPage title="Reports" description="Analytics and reports" /></ProtectedRoute>} />
+      <Route path="/admin/audit" element={<ProtectedRoute><PlaceholderPage title="Audit Logs" description="System audit trail" /></ProtectedRoute>} />
+      <Route path="/admin/settings" element={<ProtectedRoute><PlaceholderPage title="System Settings" description="Global system configuration" /></ProtectedRoute>} />
 
-    <Route path="*" element={<NotFound />} />
-  </Routes>
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  </>
 );
 
 const App = () => (

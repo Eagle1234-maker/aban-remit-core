@@ -12,9 +12,9 @@ const LoadWallet = () => {
   const [phone, setPhone] = useState('');
   const depositMutation = useDeposit();
 
-  const handleLoad = (method: string) => {
+  const handleLoad = () => {
     depositMutation.mutate(
-      { amount: Number(amount), currency: 'KES', method, phone },
+      { amount: Number(amount), phone },
       { onSuccess: () => setAmount('') }
     );
   };
@@ -44,7 +44,7 @@ const LoadWallet = () => {
                 <Label>Amount (KES)</Label>
                 <Input type="number" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
               </div>
-              <Button className="w-full" disabled={!amount || depositMutation.isPending} onClick={() => handleLoad('mpesa')}>
+              <Button className="w-full" disabled={!amount || !phone || depositMutation.isPending} onClick={() => handleLoad()}>
                 {depositMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Pay with MPESA
               </Button>
             </CardContent>
@@ -59,7 +59,7 @@ const LoadWallet = () => {
                 <Label>Amount (KES)</Label>
                 <Input type="number" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
               </div>
-              <Button className="w-full" disabled={!amount || depositMutation.isPending} onClick={() => handleLoad('card')}>
+              <Button className="w-full" disabled={!amount || depositMutation.isPending} onClick={() => handleLoad()}>
                 {depositMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Pay with Card
               </Button>
             </CardContent>
